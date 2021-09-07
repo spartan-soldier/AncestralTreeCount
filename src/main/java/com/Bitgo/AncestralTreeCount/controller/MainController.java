@@ -1,10 +1,11 @@
 package com.Bitgo.AncestralTreeCount.controller;
 
 import com.Bitgo.AncestralTreeCount.service.MainService;
-import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 
 @RestController
@@ -13,7 +14,7 @@ public class MainController {
     MainService mainService;
 
     @RequestMapping("/")
-    public String getData(){
-        return mainService.getData();
+    public List<MainService.Pair> getNLargestAncestrySet() {
+        return mainService.getNLargestAncestrySet(10);
     }
 }
