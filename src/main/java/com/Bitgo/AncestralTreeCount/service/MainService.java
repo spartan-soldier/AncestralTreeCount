@@ -1,77 +1,103 @@
 package com.Bitgo.AncestralTreeCount.service;
 
+import com.Bitgo.AncestralTreeCount.exceptions.InvalidBlockException;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 
-import static java.lang.Thread.sleep;
 
 @Service
 @Slf4j
 public class MainService {
     RestTemplate restTemplate = new RestTemplate();
 
-    public List<Pair> getNLargestAncestrySet(int n){
-        Set<String> txns = new HashSet<>(Arrays.asList(getBlockTransactions("680000")));
-        Map<String,Integer>  countMap = new HashMap<>();
-        PriorityQueue<Pair<String,Integer>> minHeap = new PriorityQueue<>(Comparator.comparingInt(Pair::getValue));
-        Map<String,List<String>> relationMap = createRelationMap(txns);
-        for(String s: txns){
-            if(relationMap.containsKey(s) && !countMap.containsKey(s)){
-                dfs(countMap,relationMap,minHeap,s,n);
-            }
-        }
-
-        // Just formatting the output to show it in sorted manner
+    public List<Pair> getNLargestAncestrySet(int n) throws InvalidBlockException {
         List<Pair> largestCountTxns = new ArrayList<>();
-        while(!minHeap.isEmpty()){
-            Pair<String,Integer> p = minHeap.poll();
-            largestCountTxns.add(p);
+        try {
+            String[] txnsList = getBlockTransactions("680000");
+            if (txnsList == null)
+                throw new InvalidBlockException();
+            Set<String> txns = new HashSet<>(Arrays.asList(txnsList));
+            Map<String, Integer> countMap = new HashMap<>();
+            PriorityQueue<Pair<String, Integer>> minHeap = new PriorityQueue<>(Comparator.comparingInt(Pair::getValue));
+            Map<String, List<String>> relationMap = createRelationMap(txns);
+            for (String s : txns) {
+                if (relationMap.containsKey(s) && !countMap.containsKey(s)) {
+                    dfs(countMap, relationMap, minHeap, s, n);
+                }
+            }
+
+            //Below piece is just to display o/p in sorted manner
+            while (!minHeap.isEmpty()) {
+                Pair<String, Integer> p = minHeap.poll();
+                largestCountTxns.add(p);
+            }
+            log.info("result: " + largestCountTxns);
+
+        }catch (InvalidBlockException e){
+            log.error("Please give a valid block. Error:"+ e);
+        }catch (NullPointerException e) {
+            log.error("Looks like some value is Null...  Error:" + e);
+        }catch (HttpClientErrorException e){
+            log.error("Bad Request!  Error:"+ e);
         }
-        System.out.println(largestCountTxns);
 
         return largestCountTxns;
     }
     
 
     public String getBlockHash(String blockId){
-        final String uri = "https://blockstream.info/api/block-height/"+blockId;
-        String result = restTemplate.getForObject(uri, String.class);
-        System.out.println(result);
-        return  result;
+        String blockHash ="";
+        try {
+            final String uri = "https://blockstream.info/api/block-height/" + blockId;
+            blockHash = restTemplate.getForObject(uri, String.class);
+            log.info("blockId: " + blockId);
+            log.info("blockHash: " + blockHash);
+        }catch (InvalidDataAccessApiUsageException e){
+            log.error("Something went wrong while accessing the block hash. Error: "+e);
+        }
+        return  blockHash;
     }
     public String[] getBlockTransactions(String blockId){
-        String blockHash = getBlockHash(blockId);
-        final String uri = "https://blockstream.info/api/block/"+blockHash+"/txids";
-        String[] result = restTemplate.getForObject(uri, String[].class);
-        System.out.println(result.toString());
+        String[] result = null;
+        try {
+            String blockHash = getBlockHash(blockId);
+            final String uri = "https://blockstream.info/api/block/" + blockHash + "/txids";
+            result = restTemplate.getForObject(uri, String[].class);
+            log.info("Transactions in Block: " + Arrays.toString(result));
+        }catch (HttpClientErrorException e){
+            log.error("Something went wrong while accessing the block transactions. Error: "+e);
+        }
         return  result;
     }
     
     public JsonNode getTransactionForTxnId(String id){
-        final String uri = "https://blockstream.info/api/tx/"+id+"?someparam="+id;
-        JsonNode result = restTemplate.getForObject(uri, JsonNode.class);
+        JsonNode result = null;
+        try {
+            final String uri = "https://blockstream.info/api/tx/" + id + "?someparam=" + id;
+            result = restTemplate.getForObject(uri, JsonNode.class);
+        }catch (HttpClientErrorException e){
+            log.error("Something went wrong while accessing the transaction for id: {} . Error: {}",id,e);
+        }
         return  result;
     }
 
 //    Map of child -> List of first level parents
     public Map<String,List<String>> createRelationMap(Set<String> validKeySet){
-
         Map<String,List<String>> relationMap = new HashMap<>();
         int count =1;
         for(String childTxnId: validKeySet){
             if(!relationMap.containsKey(childTxnId)){
                 createRelationshipMapHelper(validKeySet,relationMap,childTxnId);
             }
-            System.out.println(count);
-
-            if(++count%200==0) {
-//               break;
-            }
+            log.info("Number of records Processed : "+ count);
+            count++;
         }
 
         return relationMap;
