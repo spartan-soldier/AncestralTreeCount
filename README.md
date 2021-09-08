@@ -1,5 +1,5 @@
-Article type: Project
-Transaction Ancestry Sets
+## Article type: Project
+## Transaction Ancestry Sets
 Use a programming language of your choice to build a basic transaction ancestry set calculator.
 
 
@@ -31,4 +31,14 @@ Requirements
 2. Basic error reporting
 
 3. Code is modular, bug-free and performant
+
+## How to execute the code
+
+It's a simple spring boot application.
+
+1. Clone the project.
+2. Build it downloading all the maven dependencies.
+3. Run it.
+4. You can see the output in logs as well as http://localhost:8080/
+5. The controller is configured to http://localhost:8080/, so  do hit the link once to run the code.
 
